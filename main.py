@@ -7,7 +7,7 @@ import psycopg2
 
 class HerokuConnection(object):
     def __init__(self):
-        self.connection = psycopg2.connect(DATABASE_URL, sslmode='require')
+        self.connection = psycopg2.connect(os.environ.get('DATABASE_URL'), sslmode='require')
         self.cursor = self.connection.cursor()
 
     def close(self):

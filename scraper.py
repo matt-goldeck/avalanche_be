@@ -1,7 +1,8 @@
-import requests
 import base64
+import os
 
 import psycopg2
+import requests
 
 
 class ParsedTweet(object):
@@ -23,7 +24,7 @@ class TwitterAPIClient(object):
 
     def get_request(self, url, params=None):
         get_headers = {
-            'Authorization': 'Bearer {}'.format(ACCESS_TOKEN)
+            'Authorization': 'Bearer {}'.format(os.environ.get('ACCESS_TOKEN'))
         }
 
         resp = requests.get(url, headers=get_headers, params=params)
@@ -64,7 +65,7 @@ class TwitterAPIClient(object):
 
 class HerokuConnection(object):
     def __init__(self):
-        self.connection = psycopg2.connect(DATABASE_URL, sslmode='require')
+        self.connection = psycopg2.connect(os.environ.get('DATABASE_URL'), sslmode='require')
         self.cursor = self.connection.cursor()
 
         self.trim_tweets_table()  # delete oldest 1k records
