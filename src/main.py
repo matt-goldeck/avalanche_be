@@ -1,5 +1,3 @@
-import os
-
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,11 +18,13 @@ class HerokuConnection(object):
         self.cursor.execute("SELECT content, twitter_id FROM tweets ORDER BY RANDOM() DESC LIMIT %s OFFSET %s;", [limit, offset])
         return {'tweets': [{'content': res[0], 'id': res[1]} for res in self.cursor.fetchall()]}
 
+
 app = FastAPI()
 
 # Handle CORS policy
 origins = [
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'https://avalanche-puce.vercel.app/',
 ]
 
 app.add_middleware(
