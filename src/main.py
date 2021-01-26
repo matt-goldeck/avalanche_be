@@ -24,7 +24,7 @@ app = FastAPI()
 # Handle CORS policy
 origins = [
     'http://localhost:3000',
-    'https://avalanche-puce.vercel.app/',
+    'https://avalanche-puce.vercel.app',
 ]
 
 app.add_middleware(
