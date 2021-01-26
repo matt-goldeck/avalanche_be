@@ -1,3 +1,5 @@
+import os
+
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +26,7 @@ app = FastAPI()
 # Handle CORS policy
 origins = [
     'http://localhost:3000',
-    'https://avalanche-puce.vercel.app',
+    os.environ.get('PRODUCTION_FRONTEND_URL'),
 ]
 
 app.add_middleware(
