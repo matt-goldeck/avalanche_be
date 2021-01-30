@@ -4,6 +4,8 @@ import os
 import psycopg2
 import requests
 
+MAX_ROW_LIMIT = 10000  # hard limit of heroku free tier
+
 
 class ParsedTweet(object):
     def __init__(self, raw_obj):
@@ -24,7 +26,7 @@ class TwitterAPIClient(object):
 
     def get_request(self, url, params=None):
         get_headers = {
-            'Authorization': 'Bearer {}'.format(ACCESS_TOKEN)
+            'Authorization': 'Bearer {}'.format(os.environ.get('ACCESS_TOKEN'))
         }
 
         resp = requests.get(url, headers=get_headers, params=params)
@@ -65,10 +67,8 @@ class TwitterAPIClient(object):
 
 class HerokuConnection(object):
     def __init__(self):
-        self.connection = psycopg2.connect(DATABASE_URL, sslmode='require')
+        self.connection = psycopg2.connect(os.environ.get('DATABASE_URL'), sslmode='require')
         self.cursor = self.connection.cursor()
-
-        self.trim_tweets_table()  # delete oldest 1k records
 
     def commit(self):
         self.connection.commit()
@@ -88,16 +88,20 @@ class HerokuConnection(object):
         self.cursor.execute(query, [val for tweet in tweet_tuples for val in tweet])
         self.commit()
 
-    def trim_tweets_table(self):
-        """Check if table close to the 10k record limit. If true, delete the bottom thousand"""
-        # TODO: make this dynamic to make enough room for new tweets
+    def trim_tweets_table(self, to_insert=1000):
+        """Check if table close to the 10k record limit. If true, delete enough old tweets to make room for new tweets"""
         query = "SELECT COUNT(*) FROM tweets;"
 
         self.cursor.execute(query)
-        count = self.cursor.fetchone()[0]
-        if count >= 9000:
-            query = "DELETE FROM tweets WHERE pk IN (SELECT pk FROM tweets ORDER BY pk asc LIMIT 1000);"
-            self.cursor.execute(query)
+        current_count = self.cursor.fetchone()[0]
+        space_remaining = MAX_ROW_LIMIT - current_count
+
+        # delete enough rows to make room for rows we're going to insert
+        if space_remaining < to_insert:
+            to_delete = to_insert - space_remaining
+            print("Deleting {} rows from database".format(to_delete))
+            query = "DELETE FROM tweets WHERE pk IN (SELECT pk FROM tweets ORDER BY pk asc LIMIT %s);"
+            self.cursor.execute(query, (to_delete,))
 
         self.commit()
 
@@ -123,9 +127,14 @@ def main():
 
         tweets += found_tweets
 
+    # Make room in DB for tweets
+    print("Trimming tweets table...")
+    conn.trim_tweets_table(to_insert=len(tweets))
+
     # Dump them all in the database
     print ("Pushing tweets to database...".format(len(tweets)))
     conn.insert_tweets(tweets)
+
     conn.close()
     print("Finished inserting {} tweets".format(len(tweets)))
 
