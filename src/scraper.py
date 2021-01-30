@@ -24,7 +24,7 @@ class TwitterAPIClient(object):
 
     def get_request(self, url, params=None):
         get_headers = {
-            'Authorization': 'Bearer {}'.format(os.environ.get('ACCESS_TOKEN'))
+            'Authorization': 'Bearer {}'.format(ACCESS_TOKEN)
         }
 
         resp = requests.get(url, headers=get_headers, params=params)
@@ -32,7 +32,7 @@ class TwitterAPIClient(object):
 
         return resp
 
-    def collect_popular_topics(self, location_id=None):
+    def collect_popular_topics(self, location_id=None, topic_count=50):
         """Return top five trending topics near location; default to NYC"""
         url = '{}1.1/trends/place.json'.format(self.base_url)
 
@@ -45,7 +45,7 @@ class TwitterAPIClient(object):
 
         resp = self.get_request(url, params)
         popular_topics = [topic['query'] for topic in sorted(
-            resp.json()[0].get('trends'), key=lambda trend: trend.get('tweet_volume') if trend.get('tweet_volume') else 0, reverse=True)[:5]]
+            resp.json()[0].get('trends'), key=lambda trend: trend.get('tweet_volume') if trend.get('tweet_volume') else 0, reverse=True)[:topic_count]]
 
         return popular_topics
 
@@ -65,7 +65,7 @@ class TwitterAPIClient(object):
 
 class HerokuConnection(object):
     def __init__(self):
-        self.connection = psycopg2.connect(os.environ.get('DATABASE_URL'), sslmode='require')
+        self.connection = psycopg2.connect(DATABASE_URL, sslmode='require')
         self.cursor = self.connection.cursor()
 
         self.trim_tweets_table()  # delete oldest 1k records
@@ -90,6 +90,7 @@ class HerokuConnection(object):
 
     def trim_tweets_table(self):
         """Check if table close to the 10k record limit. If true, delete the bottom thousand"""
+        # TODO: make this dynamic to make enough room for new tweets
         query = "SELECT COUNT(*) FROM tweets;"
 
         self.cursor.execute(query)
@@ -104,8 +105,8 @@ class HerokuConnection(object):
 def main():
     api_client = TwitterAPIClient()
 
-    # Grab top 5 topics on twitter in NYC
-    print("Pulling top 5 topics...")
+    # Grab top topics on twitter in NYC
+    print("Pulling top topics...")
     topics = api_client.collect_popular_topics()
 
     # Get map of already stored tweets
